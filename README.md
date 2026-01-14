@@ -7,14 +7,17 @@ The workflow combines a **dictionary-based approach** with an **evaluation again
 ---
 
 ## Repository Structure
+
+```text
+.
 ├── data/
-│ ├── EDCS_text_cleaned_2022-09-12.json # Main dataset (~500k inscriptions)
-│ └── sample.csv # Sample of 100 inscriptions (CSV)
+│   ├── EDCS_text_cleaned_2022-09-12.json
+│   └── sample.csv
 │
-├── output/ # Generated outputs (initially empty)
+├── output/
 │
-├── arch-score.py # Architectural vocabulary scoring
-├── gliner-eval.py # GLiNER evaluation against dictionary terms
+├── arch-score.py
+├── gliner-eval.py
 └── README.md
 
 
@@ -22,9 +25,18 @@ The workflow combines a **dictionary-based approach** with an **evaluation again
 
 ## Data
 
-- **Main dataset** (`data/EDCS_text_cleaned_2022-09-12.json`)
-  - ~500,000 Latin inscriptions.
-  - Includes metadata (ID, province, date ranges) and cleaned interpretive text.
+- **Main dataset**
+
+The main dataset is not stored in this repository due to its size.
+
+Please download **EDCS_text_cleaned_2022-09-12.json** from Zenodo:
+
+👉 https://zenodo.org/records/7072337
+
+After downloading, place the file in the following location:
+
+```text
+data/EDCS_text_cleaned_2022-09-12.json
 
 - **Sample dataset** (`data/sample.csv`)
   - 100 inscriptions.
