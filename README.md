@@ -40,7 +40,7 @@ data/EDCS_text_cleaned_2022-09-12.json
 - **Sample dataset** (`data/sample.csv`)
   - 100 inscriptions.
   - Used for testing and GLiNER evaluation.
-
+```
 ---
 
 ## Scripts
