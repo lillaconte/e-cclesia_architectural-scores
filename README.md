@@ -8,6 +8,8 @@ The workflow combines a **dictionary-based approach** with an **evaluation again
 
 ## Repository Structure
 
+## Repository Structure
+
 ```text
 .
 ├── data/
@@ -19,8 +21,7 @@ The workflow combines a **dictionary-based approach** with an **evaluation again
 ├── arch-score.py
 ├── gliner-eval.py
 └── README.md
-
-```text
+```
 
 ---
 
