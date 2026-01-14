@@ -20,6 +20,7 @@ The workflow combines a **dictionary-based approach** with an **evaluation again
 ├── gliner-eval.py
 └── README.md
 
+```text
 
 ---
 
