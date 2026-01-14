@@ -8,8 +8,6 @@ The workflow combines a **dictionary-based approach** with an **evaluation again
 
 ## Repository Structure
 
-## Repository Structure
-
 ```text
 .
 ├── data/
