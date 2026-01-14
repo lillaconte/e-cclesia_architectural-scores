@@ -13,7 +13,6 @@ The workflow combines a **dictionary-based approach** with an **evaluation again
 ```text
 .
 ├── data/
-│   ├── EDCS_text_cleaned_2022-09-12.json
 │   └── sample.csv
 │
 ├── output/
