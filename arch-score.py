@@ -10,40 +10,22 @@ INPUT_FILE = 'data/EDCS_text_cleaned_2022-09-12.json'
 OUTPUT_FILE = 'output/edcs_architectural_scores.csv'
 OUTPUT_HIGH_FILE = 'output/edcs_architectural_scores_gt50.csv'
 
+# Term dictionary paths
+AUTO_TERMS_FILE = 'data/dicts/auto_terms.csv'
+ASSO_TERMS_FILE = 'data/dicts/asso_terms.csv'
+MAT_TERMS_FILE = 'data/dicts/mat_terms.csv'
+
 # Date range
 DATE_FROM = 399
 DATE_TO = 1199
 
-# Provinces to exclude
-EXCLUDED_PROVINCES = [
-    "Achaia", "Aegyptus", "Arabia", "Armenia", "Asia", "Cappadocia", 
-    "Cilicia", "Creta et Cyrenaica", "Cyprus", "Dacia", "Dalmatia", 
-    "Galatia", "Lycia et Pamphylia", "Macedonia", "Mesopotamia", 
-    "Moesia inferior", "Moesia superior", "Palaestina", "Pannonia inferior", 
-    "Pannonia superior", "Pontus et Bithynia", "Regnum Bospori", "Syria", "Thracia"
-]
-
-# Architectural vocabulary, including orthographic variants
-AUTONOMOUS_TERMS = [
-    "basilica", "baptisterium", "monasterium", "oratorium", "ecclesia", 
-    "templum", "altare", "altarium", "tabernaculum", "ciborium", "ambo", 
-    "ambonis", "confessio", "lauacrum", "pulpitum", "transenna", 
-    "presbiterium", "presbyterium", "aedes", "aeclesia", "aeclesia", 
-    "aecclesia", "aecclaesia", "basilicula"
-]
-
-ASSOCIATIVE_TERMS = [
-    "fenestra", "porta", "murus", "domus", "tabula", "rotunda", "crux", 
-    "pilarium", "podium", "aula", "columna", "arcus", "porticus", "absis", 
-    "atrium", "uestibulum", "ualuae", "cancellus", "basis", "pauimentum", 
-    "pictura", "musiuum", "cuncta", "liminare", 
-    "fons", "tectum", "decorare", "ornare", "aedificare", "edificare", 
-    "cooperire", "depingere", "tegere","tabulare", "volvere", "musivum", "struere", "pergula", "fastigium"
-]
-
-MATERIAL_TERMS = [
-    "marmor", "metallum", "aurum", "argentum", "saxa"
-]
+# Default provinces to exclude
+DEFAULT_EXCLUDED_PROVINCES = [
+    "Achaia", "Aegyptus", "Arabia", "Armenia", "Asia", "Cappadocia",
+    "Cilicia", "Creta et Cyrenaica", "Cyprus", "Dacia", "Dalmatia",
+    "Galatia", "Lycia et Pamphylia", "Macedonia", "Mesopotamia",
+    "Moesia inferior", "Moesia superior", "Palaestina", "Pannonia inferior",
+    "Pannonia superior", "Pontus et Bithynia", "Regnum Bospori", "Syria", "Thracia"]
 
 # Score weights
 WEIGHTS = {
@@ -57,56 +39,112 @@ MAX_DISTANCE = 20
 PROXIMITY_DECAY_RATE = 0.1
 
 
-def load_and_filter_data(filepath: str) -> pd.DataFrame:
+def get_excluded_provinces() -> list:
+    """Prompt user to use default excluded provinces or provide custom ones."""
+    print(f"\n{'='*80}")
+    print("PROVINCE CONFIGURATION")
+    print(f"{'='*80}")
+    print(f"\nDefault excluded provinces ({len(DEFAULT_EXCLUDED_PROVINCES)}):")
+    print(f"  {', '.join(DEFAULT_EXCLUDED_PROVINCES)}")
+    print()
+
+    choice = input("Use default excluded provinces? [Y/n]: ").strip().lower()
+
+    if choice in ('', 'y', 'yes'):
+        print(f"✓ Using default excluded provinces ({len(DEFAULT_EXCLUDED_PROVINCES)} provinces).")
+        return DEFAULT_EXCLUDED_PROVINCES
+    else:
+        print("\nEnter provinces to exclude, separated by commas.")
+        print("Example: Achaia, Aegyptus, Syria")
+        raw = input("Excluded provinces: ").strip()
+
+        if not raw:
+            print("⚠ No input provided. Falling back to default excluded provinces.")
+            return DEFAULT_EXCLUDED_PROVINCES
+
+        custom_provinces = [p.strip() for p in raw.split(',') if p.strip()]
+        print(f"✓ Using custom excluded provinces ({len(custom_provinces)} provinces):")
+        print(f"  {', '.join(custom_provinces)}")
+        return custom_provinces
+
+
+def load_terms(filepath: str, label: str) -> list:
+    """Load terms from a CSV file's 'term' column."""
+    try:
+        df = pd.read_csv(filepath, encoding='utf-8')
+        if 'term' not in df.columns:
+            raise ValueError(f"Column 'term' not found in {filepath}. Available columns: {list(df.columns)}")
+        terms = df['term'].dropna().str.strip().tolist()
+        print(f"  ✓ {label}: {len(terms)} terms loaded from {filepath}")
+        return terms
+    except FileNotFoundError:
+        print(f"  ✗ ERROR: File not found — {filepath}")
+        raise
+    except Exception as e:
+        print(f"  ✗ ERROR loading {filepath}: {e}")
+        raise
+
+
+def load_term_dictionaries() -> tuple:
+    """Load all three term dictionaries from CSV files."""
+    print(f"\n{'='*80}")
+    print("LOADING TERM DICTIONARIES")
+    print(f"{'='*80}\n")
+    autonomous_terms = load_terms(AUTO_TERMS_FILE, "Autonomous terms")
+    associative_terms = load_terms(ASSO_TERMS_FILE, "Associative terms")
+    material_terms = load_terms(MAT_TERMS_FILE, "Material terms")
+    return autonomous_terms, associative_terms, material_terms
+
+
+def load_and_filter_data(filepath: str, excluded_provinces: list) -> pd.DataFrame:
     """Load JSON and filter by date range and provinces."""
     print(f"\n{'='*80}")
     print("STEP 1: LOADING AND FILTERING DATA")
     print(f"{'='*80}")
     print(f"Loading data from {filepath}...")
-    
+
     with open(filepath, 'r', encoding='utf-8') as f:
         data = json.load(f)
-    
+
     df = pd.DataFrame(data)
     print(f"✓ Total inscriptions loaded: {len(df):,}")
-    
+
     # Show available columns
     print(f"\nAvailable columns in dataset: {len(df.columns)}")
     print(f"Key columns: {', '.join(df.columns[:10].tolist())}...")
-    
+
     # Filter by date range
     print(f"\nFiltering by date range: {DATE_FROM}-{DATE_TO}")
     print("  Checking date fields...")
-    
+
     def is_in_date_range(row):
         try:
             date_from = pd.to_numeric(row.get('date_not_before', None), errors='coerce')
             date_to = pd.to_numeric(row.get('date_not_after', None), errors='coerce')
-            
+
             if pd.isna(date_from) or pd.isna(date_to):
                 return False
-            
-            # Check if date range overlaps with our target range
+
             return not (date_to < DATE_FROM or date_from > DATE_TO)
         except:
             return False
-    
+
     df['in_date_range'] = df.apply(is_in_date_range, axis=1)
     before_date_filter = len(df)
     df = df[df['in_date_range']].copy()
     removed_by_date = before_date_filter - len(df)
     print(f"  ✓ After date filtering: {len(df):,} inscriptions")
     print(f"    (removed {removed_by_date:,} inscriptions outside date range)")
-    
+
     # Filter by province
-    print(f"\nFiltering by province (excluding {len(EXCLUDED_PROVINCES)} provinces)")
-    print(f"  Excluded provinces: {', '.join(EXCLUDED_PROVINCES[:5])}...")
+    print(f"\nFiltering by province (excluding {len(excluded_provinces)} provinces)")
+    print(f"  Excluded provinces: {', '.join(excluded_provinces[:5])}{'...' if len(excluded_provinces) > 5 else ''}")
     before_province_filter = len(df)
-    df = df[~df['province'].isin(EXCLUDED_PROVINCES)].copy()
+    df = df[~df['province'].isin(excluded_provinces)].copy()
     removed_by_province = before_province_filter - len(df)
     print(f"  ✓ After province filtering: {len(df):,} inscriptions")
     print(f"    (removed {removed_by_province:,} inscriptions from excluded provinces)")
-    
+
     # Save filtered data to a secondary subset
     filtered_output = 'output/edcs_filtered_inscriptions.csv'
     df.to_csv(filtered_output, index=False, encoding='utf-8')
@@ -114,7 +152,7 @@ def load_and_filter_data(filepath: str) -> pd.DataFrame:
 
     # Reset index to avoid iteration issues
     df = df.reset_index(drop=True)
-    
+
     # Show remaining provinces
     remaining_provinces = df['province'].value_counts()
     print(f"\nRemaining provinces ({len(remaining_provinces)}):")
@@ -122,7 +160,7 @@ def load_and_filter_data(filepath: str) -> pd.DataFrame:
         print(f"  - {prov}: {count:,} inscriptions")
     if len(remaining_provinces) > 10:
         print(f"  ... and {len(remaining_provinces) - 10} more provinces")
-    
+
     return df
 
 
@@ -140,25 +178,25 @@ def lemmatize_texts(df: pd.DataFrame) -> pd.DataFrame:
         os.system("python -m spacy download la_core_web_md")
         nlp = spacy.load("la_core_web_md")
         print("✓ Model installed and loaded")
-    
+
     print(f"\nProcessing {len(df):,} inscriptions...")
     print("Using field: 'clean_text_interpretive_word'")
-    
+
     lemmatized_texts = []
     empty_texts = 0
-    
+
     for i in range(len(df)):
         if i % 100 == 0 and i > 0:
             print(f"  Progress: {i:,}/{len(df):,} ({(i/len(df)*100):.1f}%)")
-        
+
         row = df.iloc[i]
         text = row.get('clean_text_interpretive_word', '')
-        
+
         if pd.isna(text) or not text:
             lemmatized_texts.append('')
             empty_texts += 1
             continue
-        
+
         doc = nlp(str(text))
         lemmas = [
             token.lemma_.lower()
@@ -166,7 +204,7 @@ def lemmatize_texts(df: pd.DataFrame) -> pd.DataFrame:
             if token.is_alpha
         ]
         lemmatized_texts.append(" ".join(lemmas))
-        
+
         # Print first example
         if i == 0 and lemmas:
             print(f"\n--- Example: First inscription ---")
@@ -175,22 +213,22 @@ def lemmatize_texts(df: pd.DataFrame) -> pd.DataFrame:
             print(f"  Lemmatized: {' '.join(lemmas)}")
             print(f"  Word count: {len(text.split())} → {len(lemmas)} lemmas")
             print()
-    
+
     df['lemmatized_text'] = lemmatized_texts
     print(f"\n✓ Lemmatization complete!")
     print(f"  - Processed: {len(df):,} inscriptions")
     print(f"  - Empty/missing texts: {empty_texts:,}")
     print(f"  - With content: {len(df) - empty_texts:,}")
-    
+
     return df
 
 
-def calculate_score(lemmatized_text: str, 
-                   auto_terms: Set[str], 
-                   assoc_terms: Set[str],
-                   mate_terms: Set[str]) -> Dict:
+def calculate_score(lemmatized_text: str,
+                    auto_terms: Set[str],
+                    assoc_terms: Set[str],
+                    mate_terms: Set[str]) -> Dict:
     """Calculate architectural concentration score for a single inscription."""
-    
+
     if pd.isna(lemmatized_text) or not lemmatized_text:
         return {
             'score': 0.0,
@@ -201,16 +239,16 @@ def calculate_score(lemmatized_text: str,
             'n_associative': 0,
             'n_material': 0
         }
-    
+
     lemmas = str(lemmatized_text).split()
-    
+
     # Find terms and their positions
     autonomous_found = []
     associative_found = []
     material_found = []
     auto_assoc_positions = []
     material_positions = []
-    
+
     for idx, lemma in enumerate(lemmas):
         if lemma in auto_terms:
             autonomous_found.append(lemma)
@@ -221,23 +259,22 @@ def calculate_score(lemmatized_text: str,
         elif lemma in mate_terms:
             material_found.append(lemma)
             material_positions.append(idx)
-    
+
     n_auto = len(autonomous_found)
     n_assoc = len(associative_found)
     n_mate = len(material_found)
     total_terms = n_auto + n_assoc
-    
-    
+
     # Material terms only have value if there is at least one other assoc or auto term
     include_material = (n_auto + n_assoc) > 0
-    
+
     # Build positions used for proximity computation
     positions = list(auto_assoc_positions)
     if include_material:
         positions.extend(material_positions)
-    
+
     total_terms = n_auto + n_assoc + (n_mate if include_material else 0)
-    
+
     if total_terms == 0:
         return {
             'score': 0.0,
@@ -248,9 +285,10 @@ def calculate_score(lemmatized_text: str,
             'n_associative': 0,
             'n_material': 0
         }
+
     # Component 1: Term count (logarithmic scale)
     score_count = min(np.log1p(total_terms) / np.log1p(5), 1.0)
-    
+
     # Component 2: Co-occurrence of terms
     if n_auto == 0:
         score_cooc = 0.0
@@ -260,7 +298,7 @@ def calculate_score(lemmatized_text: str,
         score_cooc = 0.6
     else:
         score_cooc = 0.3
-    
+
     # Component 3: Proximity (average distance between consecutive terms)
     if len(positions) > 1:
         positions.sort()
@@ -269,11 +307,11 @@ def calculate_score(lemmatized_text: str,
         score_prox = np.exp(-0.1 * avg_distance)
     else:
         score_prox = 0.0
-    
+
     # Component 4: Density (terms per lemma)
     density = total_terms / len(lemmas)
     score_density = min(density / 0.15, 1.0)
-    
+
     # Final weighted score (0-100)
     final_score = (
         WEIGHTS['term_count'] * score_count +
@@ -281,6 +319,7 @@ def calculate_score(lemmatized_text: str,
         WEIGHTS['proximity'] * score_prox +
         WEIGHTS['density'] * score_density
     ) * 100
+
     return {
         'score': round(final_score, 2),
         'autonomous': autonomous_found,
@@ -292,62 +331,62 @@ def calculate_score(lemmatized_text: str,
     }
 
 
-def process_corpus(df: pd.DataFrame) -> pd.DataFrame:
+def process_corpus(df: pd.DataFrame, autonomous_terms: list, associative_terms: list, material_terms: list) -> pd.DataFrame:
     """Process all inscriptions and calculate scores."""
-    
+
     print(f"\n{'='*80}")
     print("STEP 3: CALCULATING ARCHITECTURAL SCORES")
     print(f"{'='*80}")
-    
-    auto_set = set(AUTONOMOUS_TERMS)
-    assoc_set = set(ASSOCIATIVE_TERMS)
-    mate_set = set(MATERIAL_TERMS)
-    
+
+    auto_set = set(autonomous_terms)
+    assoc_set = set(associative_terms)
+    mate_set = set(material_terms)
+
     print(f"\nArchitectural vocabulary:")
-    print(f"  - Autonomous terms: {len(AUTONOMOUS_TERMS)} ({', '.join(AUTONOMOUS_TERMS[:5])}...)")
-    print(f"  - Associative terms: {len(ASSOCIATIVE_TERMS)} ({', '.join(ASSOCIATIVE_TERMS[:5])}...)")
-    print(f"  - Material terms: {len(MATERIAL_TERMS)} ({', '.join(MATERIAL_TERMS[:5])}...)")
-    
+    print(f"  - Autonomous terms: {len(autonomous_terms)} ({', '.join(autonomous_terms[:5])}{'...' if len(autonomous_terms) > 5 else ''})")
+    print(f"  - Associative terms: {len(associative_terms)} ({', '.join(associative_terms[:5])}{'...' if len(associative_terms) > 5 else ''})")
+    print(f"  - Material terms: {len(material_terms)} ({', '.join(material_terms[:5])}{'...' if len(material_terms) > 5 else ''})")
+
     print(f"\nScore calculation weights:")
     for component, weight in WEIGHTS.items():
         print(f"  - {component}: {weight} ({weight*100:.0f}%)")
-    
+
     print(f"\nProcessing {len(df):,} inscriptions...")
-    
+
     scores = []
     autonomous_lists = []
     associative_lists = []
     material_lists = []
-    
+
     # Track statistics
     inscriptions_with_terms = 0
     total_auto_terms = 0
     total_assoc_terms = 0
     total_mate_terms = 0
-    
+
     for idx in range(len(df)):
         if idx % 500 == 0:
             print(f"  Progress: {idx:,}/{len(df):,} ({(idx/len(df)*100):.1f}%)")
-        
+
         row = df.iloc[idx]
         result = calculate_score(row['lemmatized_text'], auto_set, assoc_set, mate_set)
-        
+
         scores.append(result['score'])
         autonomous_lists.append('|'.join(result['autonomous']) if result['autonomous'] else '')
         associative_lists.append('|'.join(result['associative']) if result['associative'] else '')
         material_lists.append('|'.join(result['material']) if result['material'] else '')
-        
+
         if result['score'] > 0:
             inscriptions_with_terms += 1
             total_auto_terms += result['n_autonomous']
             total_assoc_terms += result['n_associative']
             total_mate_terms += result['n_material']
-    
+
     df['arch_score'] = scores
     df['autonomous_terms'] = autonomous_lists
     df['associative_terms'] = associative_lists
     df['material_terms'] = material_lists
-    
+
     print(f"\n✓ Processing complete!\n")
     print(f"Results summary:")
     print(f"  - Total inscriptions: {len(df):,}")
@@ -367,19 +406,19 @@ def process_corpus(df: pd.DataFrame) -> pd.DataFrame:
     print(f"  - Score > 50: {(df['arch_score'] > 50).sum():,} inscriptions")
     print(f"  - Score > 60: {(df['arch_score'] > 60).sum():,} inscriptions")
     print(f"  - Score > 70: {(df['arch_score'] > 70).sum():,} inscriptions")
-    
+
     return df
 
 
 def show_top_inscriptions(df: pd.DataFrame, n: int = 10) -> None:
     """Display top N highest scoring inscriptions."""
-    
+
     print(f"\n{'='*80}")
     print(f"Top {n} inscriptions by architectural score:")
     print(f"{'='*80}\n")
-    
+
     top = df.nlargest(n, 'arch_score')
-    
+
     for idx, (_, row) in enumerate(top.iterrows(), 1):
         print(f"{idx}. Score: {row['arch_score']:.2f}")
         print(f"   ID: {row['EDCS-ID']}")
@@ -394,32 +433,38 @@ def show_top_inscriptions(df: pd.DataFrame, n: int = 10) -> None:
 
 def main():
     """Main execution function."""
-    
+
     print("\n" + "="*80)
     print("ARCHITECTURAL VOCABULARY ANALYSIS")
     print("Latin Inscriptions (399-1199 CE)")
     print("="*80)
-    
+
     # Create output directory if needed
     os.makedirs('output', exist_ok=True)
-    
+
+    # Get province exclusion list (interactive)
+    excluded_provinces = get_excluded_provinces()
+
+    # Load term dictionaries from CSV files
+    autonomous_terms, associative_terms, material_terms = load_term_dictionaries()
+
     # Load and filter data
-    df = load_and_filter_data(INPUT_FILE)
-    
+    df = load_and_filter_data(INPUT_FILE, excluded_provinces)
+
     if len(df) == 0:
         print("\n ERROR: No inscriptions match the filtering criteria!")
         print("   Check your date range and province exclusions.")
         return
-    
+
     # Lemmatize texts
     df = lemmatize_texts(df)
-    
+
     # Calculate scores
-    df_scored = process_corpus(df)
-    
+    df_scored = process_corpus(df, autonomous_terms, associative_terms, material_terms)
+
     # Show top results
     show_top_inscriptions(df_scored, n=10)
-    
+
     # Save results
     print(f"\n{'='*80}")
     print("STEP 4: SAVING RESULTS")
@@ -429,10 +474,10 @@ def main():
     print(f"  - Encoding: UTF-8")
     print(f"  - Rows: {len(df_scored):,}")
     print(f"  - Columns: {len(df_scored.columns)}")
-    
+
     df_scored.to_csv(OUTPUT_FILE, index=False, encoding='utf-8')
-    
-    file_size = os.path.getsize(OUTPUT_FILE) / (1024 * 1024)  # Convert to MB
+
+    file_size = os.path.getsize(OUTPUT_FILE) / (1024 * 1024)
     print(f"\n✓ File saved successfully!")
     print(f"  - Size: {file_size:.2f} MB")
 
@@ -459,19 +504,19 @@ def main():
         print(f"  - Size: {high_size:.2f} MB")
     else:
         print("\nNo inscriptions with arch_score > 50 found; no high-score CSV created.")
-    
+
     # Summary statistics
     print(f"\n{'='*80}")
     print("FINAL SUMMARY")
     print(f"{'='*80}")
     print(f"\nColumns in output file:")
-    print(f"  Original columns: {len(df.columns) - 4}")  # Minus the new ones
+    print(f"  Original columns: {len(df.columns) - 4}")
     print(f"  New columns added: 4")
     print(f"    1. lemmatized_text (lemmatized Latin text)")
     print(f"    2. arch_score (architectural concentration score 0-100)")
     print(f"    3. autonomous_terms (found autonomous terms, pipe-separated)")
     print(f"    4. associative_terms (found associative terms, pipe-separated)")
-    
+
     print("\nArchitectural score distribution:")
     scores = pd.to_numeric(df_scored['arch_score'], errors='coerce').dropna()
     total_count = len(scores)
@@ -489,9 +534,9 @@ def main():
         print(f"  - Mean: {scores.mean():.2f}")
         print(f"  - Std: {scores.std():.2f}")
         print(f"  - Min: {scores.min():.2f}")
-        print(f"  - Median: {scores[scores!=0].median():.2f}") # median without '0' values because there are too many
+        print(f"  - Median: {scores[scores!=0].median():.2f}")
         print(f"  - Max: {scores.max():.2f}")
-    
+
     print(f"\n{'='*80}")
     print("✓ ANALYSIS COMPLETE!")
     print(f"{'='*80}\n")
