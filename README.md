@@ -1,8 +1,16 @@
-# Architectural Vocabulary Detection in Latin Inscriptions
+# EccLexica : Christian Architectural Vocabulary Detection in Latin Texts
 
-This repository contains scripts and data for identifying and quantifying architectural vocabulary in Latin inscriptions, primarily based on the EDCS corpus.
+This repository contains a dictionary-based method for identifying architectural discourse in Late Antique and Medieval Latin texts. It is applied to a test corpus of Latin inscriptions.
 
 The workflow combines a **dictionary-based approach** with an **evaluation against GLiNER named-entity recognition models**.
+
+EccLexica is being developed as part of the ANR E-cclesia project.
+
+<div align="center">
+  <img src="assets/ANR_Logo.svg.png" alt="logo anr" width="300" />
+   <img src="assets/logo_ecclesia.jpg" alt="logo anr" width="300" />
+</div>
+
 
 ---
 
@@ -11,6 +19,10 @@ The workflow combines a **dictionary-based approach** with an **evaluation again
 ```text
 .
 ├── data/
+│   └── dicts
+│     └── auto_terms.csv
+│     └── asso_terms.csv
+│     └── mat_terms.csv
 │   └── sample.csv
 │
 ├── output/
@@ -34,13 +46,12 @@ Please download **EDCS_text_cleaned_2022-09-12.json** from Zenodo:
 
 After downloading, place the file in the following location:
 
-```text
 data/EDCS_text_cleaned_2022-09-12.json
-```
+
 - **Sample dataset** (`data/sample.csv`)
   - 100 inscriptions.
   - Used for testing and GLiNER evaluation.
-```
+
 ---
 
 ## Scripts
@@ -138,4 +149,7 @@ Evaluates **GLiNER NER models** against the dictionary-based architectural terms
 
 ---
 
+## Citations 
+
+Heřmánková, Petra. “EDCS”. Zenodo, September 12, 2022. https://doi.org/10.5281/zenodo.7072337.
 
