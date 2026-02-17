@@ -7,8 +7,8 @@ The workflow combines a **dictionary-based approach** with an **evaluation again
 EccLexica is being developed as part of the ANR E-cclesia project.
 
 <div align="center">
-  <img src="assets/ANR_Logo.svg.png" alt="logo anr" width="300" />
-   <img src="assets/logo_ecclesia.jpg" alt="logo anr" width="300" />
+  <img src="assets/ANR_Logo.svg.png" alt="logo anr"/>
+  <img src="assets/logo_ecclesia.jpg" alt="logo ecclesia"/>
 </div>
 
 
