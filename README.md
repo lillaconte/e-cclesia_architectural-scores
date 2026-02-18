@@ -1,4 +1,4 @@
-# EccLexica : Christian Architectural Vocabulary Detection in Latin Texts
+# EccLexica : Christian Architectural Discourse Detection in Latin Texts
 
 This repository contains a dictionary-based method for identifying architectural discourse in Late Antique and Medieval Latin texts. It is applied to a test corpus of Latin inscriptions.
 
@@ -10,7 +10,6 @@ EccLexica is being developed as part of the ANR E-cclesia project.
   <img width="100" src="assets/ANR_Logo.svg.png" alt="logo anr"/>
   <img width="100" src="assets/logo_ecclesia.jpg" alt="logo ecclesia"/>
 </div>
-
 
 ---
 
